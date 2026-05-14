@@ -1,0 +1,8 @@
+{
+  "name": "Eat Right Foods",
+  "description": "Healthy, simple, and wholesome Nigerian and continental meals delivered to your doorstep. Healthy meals, made easy!",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

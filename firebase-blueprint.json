@@ -1,0 +1,108 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user delivery addresses and payment metadata",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "street": { "type": "string" },
+              "city": { "type": "string" },
+              "state": { "type": "string" },
+              "isDefault": { "type": "boolean" }
+            },
+            "required": ["id", "label", "street"]
+          }
+        },
+        "paymentMethods": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "type": "string" },
+              "last4": { "type": "string" },
+              "brand": { "type": "string" },
+              "expiry": { "type": "string" },
+              "isDefault": { "type": "boolean" }
+            },
+            "required": ["id", "last4", "brand"]
+          }
+        }
+      },
+      "required": ["displayName", "email"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Represents a past order placed by the user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "productId": { "type": "string" },
+              "name": { "type": "string" },
+              "price": { "type": "number" },
+              "quantity": { "type": "number" }
+            }
+          }
+        },
+        "subtotal": { "type": "number" },
+        "deliveryFee": { "type": "number" },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "preparing", "dispatched", "delivered"] },
+        "address": { "type": "string" },
+        "deliveryType": { "type": "string" }
+      },
+      "required": ["id", "date", "items", "total", "status"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A food item available on the menu",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "image": { "type": "string" },
+        "calories": { "type": "number" },
+        "protein": { "type": "number" },
+        "isAvailable": { "type": "boolean" }
+      },
+      "required": ["name", "price", "category", "image"]
+    }
+  },
+  "firestore": {
+    "/profiles/{userId}": {
+      "schema": "UserProfile",
+      "description": "Private user profiles containing shipping and billing info"
+    },
+    "/profiles/{userId}/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Subcollection of past orders for a specific user"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Global collection of menu products"
+    },
+    "/admins/{userId}": {
+      "schema": { "type": "object", "properties": { "role": { "type": "string" } } },
+      "description": "Restricted collection for defining administrative roles"
+    }
+  }
+}

@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 3. Primitive Definition
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'kpanukuchikaobi@gmail.com'
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 2. Validation Blueprints
+    function isValidProfile(data) {
+      return data.displayName is string && data.displayName.size() <= 100 &&
+             data.email is string && data.email.size() <= 100 &&
+             data.addresses is list &&
+             data.paymentMethods is list;
+    }
+
+    function isValidProfileUpdate(data) {
+      return (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 100)) &&
+             (!('addresses' in data) || (data.addresses is list)) &&
+             (!('paymentMethods' in data) || (data.paymentMethods is list));
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['id', 'date', 'items', 'total', 'status']) &&
+             data.id is string &&
+             data.date is string &&
+             data.items is list &&
+             data.total is number &&
+             data.status in ['pending', 'preparing', 'dispatched', 'delivered', 'cancelled'];
+    }
+
+    function isValidProduct(data) {
+      return data.name is string && data.name.size() <= 100 &&
+             data.price is number && data.price >= 0 &&
+             data.category is string &&
+             data.image is string;
+    }
+
+    // Admins collection
+    match /admins/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId) && request.auth.token.email == 'kpanukuchikaobi@gmail.com';
+    }
+
+    // Products collection
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin() && isValidProduct(incoming());
+    }
+
+    // Match profiles
+    match /profiles/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidProfile(incoming());
+      allow update: if (isOwner(userId) || isAdmin()) && isValidProfileUpdate(incoming());
+
+      match /orders/{orderId} {
+        allow list, get: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidOrder(incoming());
+        allow update: if isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      }
+    }
+
+    // Collection group for global order access
+    match /{path=**}/orders/{orderId} {
+      allow list: if isAdmin();
+    }
+  }
+}
