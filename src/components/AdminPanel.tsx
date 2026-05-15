@@ -60,7 +60,7 @@ type AdminTab = 'dashboard' | 'menu' | 'orders' | 'users';
 
 interface AdminNotification {
   id: string;
-  type: 'new_order' | 'status_update';
+  type: 'new_order' | 'status_update' | 'user_update';
   message: string;
   timestamp: Date;
   read: boolean;
@@ -91,6 +91,7 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
   const [orderStatusFilter, setOrderStatusFilter] = React.useState<OrderStatus | 'all'>('all');
   const [orderDateRange, setOrderDateRange] = React.useState<{ start: string; end: string }>({ start: '', end: '' });
   const [orderSearchQuery, setOrderSearchQuery] = React.useState('');
+  const [userSearchQuery, setUserSearchQuery] = React.useState('');
 
   // Stats Analytics
   const analyticsData = React.useMemo(() => {
@@ -214,6 +215,32 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
     // Fetch All Profiles
     const unsubscribeProfiles = onSnapshot(collection(db, 'profiles'), (snapshot) => {
       const profs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      if (!isInitialLoad.current) {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'modified') {
+            const data = change.doc.data();
+            // We'll trust the modified event for role-related updates or overall profile shifts
+            // that might interest an admin
+            if (data.role) {
+              setNotifications(prev => {
+                // Avoid redundant notifications for the same user role within a short window 
+                // (Optional, but let's keep it simple first)
+                return [{
+                  id: Math.random().toString(36).substr(2, 9),
+                  type: 'user_update' as const,
+                  message: `${data.displayName || 'A user'}'s account was updated`,
+                  timestamp: new Date(),
+                  read: false,
+                  userId: change.doc.id,
+                  details: `Role: ${data.role.toUpperCase()}`
+                }, ...prev].slice(0, 50);
+              });
+            }
+          }
+        });
+      }
+      
       setProfiles(profs);
     }, (err) => {
       console.error(err);
@@ -396,7 +423,15 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                   onClick={() => {
                                     if (n.orderId) {
                                       const order = orders.find(o => o.id === n.orderId);
-                                      if (order) setSelectedOrder(order);
+                                      if (order) {
+                                        setSelectedOrder(order);
+                                        setActiveTab('orders');
+                                      }
+                                      markAsRead(n.id);
+                                      setShowNotifications(false);
+                                    } else if (n.userId) {
+                                      setUserSearchQuery(n.userId);
+                                      setActiveTab('users');
                                       markAsRead(n.id);
                                       setShowNotifications(false);
                                     }
@@ -408,14 +443,20 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                 >
                                   <div className={cn(
                                     "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm",
-                                    n.type === 'new_order' ? "bg-emerald-50 text-emerald-600" : "bg-indigo-50 text-indigo-600"
+                                    n.type === 'new_order' ? "bg-emerald-50 text-emerald-600" : 
+                                    n.type === 'status_update' ? "bg-indigo-50 text-indigo-600" :
+                                    "bg-amber-50 text-amber-600"
                                   )}>
-                                    {n.type === 'new_order' ? <ShoppingBag size={20} /> : <Activity size={20} />}
+                                    {n.type === 'new_order' ? <ShoppingBag size={20} /> : 
+                                     n.type === 'status_update' ? <Activity size={20} /> : 
+                                     <Users size={20} />}
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2 mb-1">
                                       <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                        {n.type === 'new_order' ? 'New Placement' : 'Status Change'}
+                                        {n.type === 'new_order' ? 'New Placement' : 
+                                         n.type === 'status_update' ? 'Status Change' : 
+                                         'Member Update'}
                                       </p>
                                       <p className="text-[9px] font-bold text-slate-400">{new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                     </div>
@@ -1115,6 +1156,16 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                           <p className="text-sm text-slate-500 mt-1">Manage elite member records and communication</p>
                         </div>
                         <div className="flex items-center gap-4">
+                           <div className="relative">
+                               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                               <input 
+                                 type="text"
+                                 placeholder="Search users..."
+                                 value={userSearchQuery}
+                                 onChange={(e) => setUserSearchQuery(e.target.value)}
+                                 className="w-full bg-slate-100 border border-slate-200 rounded-xl pl-12 pr-4 py-2.5 text-sm outline-none focus:bg-white focus:border-brand-green transition-all"
+                               />
+                           </div>
                            <div className="px-4 py-2 bg-slate-100 rounded-xl border border-slate-200 text-right">
                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Total Members</p>
                               <p className="text-lg font-display font-bold text-slate-900">{profiles.length}</p>
@@ -1135,7 +1186,13 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                  </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-50">
-                                 {profiles.map(profile => {
+                                 {profiles
+                                  .filter(p => 
+                                    (p.displayName || '').toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                                    (p.email || '').toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                                    (p.id || '').toLowerCase().includes(userSearchQuery.toLowerCase())
+                                  )
+                                  .map(profile => {
                                     const userOrders = orders.filter(o => o.userId === profile.id);
                                     return (
                                       <tr key={profile.id} className="hover:bg-slate-50/50 transition-colors group">
@@ -1326,11 +1383,18 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                  <section className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     <div className="space-y-4">
                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer Identity</h4>
-                                       <div className="flex items-center gap-3">
-                                          <div className="w-10 h-10 rounded-full bg-brand-green/10 flex items-center justify-center text-brand-green">
+                                       <div 
+                                         onClick={() => {
+                                            setUserSearchQuery(selectedOrder.userId);
+                                            setActiveTab('users');
+                                            setSelectedOrder(null);
+                                         }}
+                                         className="flex items-center gap-3 cursor-pointer group/user"
+                                       >
+                                          <div className="w-10 h-10 rounded-full bg-brand-green/10 flex items-center justify-center text-brand-green group-hover/user:bg-brand-green group-hover/user:text-white transition-all">
                                              <Users size={18} />
                                           </div>
-                                          <span className="text-sm font-bold text-slate-700">{selectedOrder.userId}</span>
+                                          <span className="text-sm font-bold text-slate-700 group-hover/user:text-brand-green transition-all">{selectedOrder.userId}</span>
                                        </div>
                                     </div>
                                     <div className="space-y-4">

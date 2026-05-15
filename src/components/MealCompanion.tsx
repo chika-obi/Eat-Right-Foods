@@ -13,7 +13,7 @@ interface Recommendation {
   reasoning: string;
 }
 
-interface AIResponse {
+interface CompanionResponse {
   recommendations: Recommendation[];
   advice: string;
 }
@@ -22,7 +22,7 @@ export function MealCompanion({ products }: MealCompanionProps) {
   const [preferences, setPreferences] = React.useState('');
   const [dietaryGoals, setDietaryGoals] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
-  const [result, setResult] = React.useState<AIResponse | null>(null);
+  const [result, setResult] = React.useState<CompanionResponse | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
