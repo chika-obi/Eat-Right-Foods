@@ -13,7 +13,7 @@ export function PromotionModal() {
       if (!dismissed) {
         setIsOpen(true);
       }
-    }, 2000);
+    }, 5000); // Increased to 5s for better UX
 
     return () => clearTimeout(timer);
   }, []);

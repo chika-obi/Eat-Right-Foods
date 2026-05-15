@@ -6,7 +6,7 @@ import { CONTACT_INFO, DELIVERY_OPTIONS } from '../constants';
 import { cn } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, doc, setDoc } from 'firebase/firestore';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -85,7 +85,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemove 
           address: deliveryAddress,
           deliveryType: selectedDelivery.id
         };
-        await addDoc(collection(db, 'profiles', auth.currentUser.uid, 'orders'), orderData);
+        await setDoc(doc(db, 'profiles', auth.currentUser.uid, 'orders', orderId), orderData);
       } catch (err) {
         console.error("Failed to save order history:", err);
       }

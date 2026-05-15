@@ -59,6 +59,9 @@ export interface Product {
   reviews: Review[];
   calories?: number;
   protein?: number;
+  carbs?: number;
+  fiber?: number;
+  isAvailable?: boolean;
 }
 
 export interface CartItem extends Product {

@@ -71,7 +71,7 @@ export function ProductCard({ product, onAddToCart, onViewReviews }: ProductCard
              <div className="w-px h-8 bg-slate-100" />
              <div className="flex flex-col">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Carbs</span>
-                <span className="text-sm font-bold text-brand-dark">24g</span>
+                <span className="text-sm font-bold text-brand-dark">{product.carbs || 24}g</span>
              </div>
           </div>
         )}

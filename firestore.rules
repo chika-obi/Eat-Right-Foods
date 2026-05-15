@@ -15,11 +15,22 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isSystemAdmin() {
+      return isSignedIn() && 
+             (request.auth.token.email.lower() == 'kpanukuchikaobi@gmail.com'.lower() || 
+              request.auth.token.email.lower() == 'admin@eatright.com'.lower());
+    }
+
     function isAdmin() {
       return isSignedIn() && (
+        isSystemAdmin() ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.token.email == 'kpanukuchikaobi@gmail.com'
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.get('role', 'member') == 'admin'
       );
+    }
+
+    function isStatusUpdateOnly(data, existingData) {
+      return data.diff(existingData).affectedKeys().hasOnly(['status']);
     }
 
     function incoming() {
@@ -32,15 +43,21 @@ service cloud.firestore {
 
     // 2. Validation Blueprints
     function isValidProfile(data) {
-      return data.displayName is string && data.displayName.size() <= 100 &&
-             data.email is string && data.email.size() <= 100 &&
-             data.addresses is list &&
-             data.paymentMethods is list;
+      return (data.displayName is string && data.displayName.size() <= 100) &&
+             (data.email is string && data.email.size() <= 100) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1000)) &&
+             (!('role' in data) || (data.role is string)) &&
+             (!('emailVerified' in data) || (data.emailVerified is bool)) &&
+             (!('addresses' in data) || (data.addresses is list)) &&
+             (!('paymentMethods' in data) || (data.paymentMethods is list));
     }
 
     function isValidProfileUpdate(data) {
       return (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
              (!('email' in data) || (data.email is string && data.email.size() <= 100)) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1000)) &&
+             (!('role' in data) || (data.role is string)) &&
+             (!('emailVerified' in data) || (data.emailVerified is bool)) &&
              (!('addresses' in data) || (data.addresses is list)) &&
              (!('paymentMethods' in data) || (data.paymentMethods is list));
     }
@@ -55,34 +72,47 @@ service cloud.firestore {
     }
 
     function isValidProduct(data) {
-      return data.name is string && data.name.size() <= 100 &&
-             data.price is number && data.price >= 0 &&
-             data.category is string &&
-             data.image is string;
+      return (data.name is string && data.name.size() <= 100) &&
+             (data.price is number && data.price >= 0) &&
+             (data.category is string) &&
+             (data.image is string) &&
+             (!('calories' in data) || data.calories is number) &&
+             (!('protein' in data) || data.protein is number) &&
+             (!('carbs' in data) || data.carbs is number) &&
+             (!('fiber' in data) || data.fiber is number) &&
+             (!('isAvailable' in data) || data.isAvailable is bool) &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+             (!('reviews' in data) || (data.reviews is list)) &&
+             (!('id' in data) || data.id is string);
     }
 
     // Admins collection
     match /admins/{userId} {
       allow read: if isSignedIn();
-      allow create: if isOwner(userId) && request.auth.token.email == 'kpanukuchikaobi@gmail.com';
+      allow create: if isOwner(userId) && isSystemAdmin();
     }
 
     // Products collection
     match /products/{productId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin() && isValidProduct(incoming());
+      allow create, update: if isAdmin() && isValidProduct(incoming());
+      allow delete: if isAdmin();
     }
 
     // Match profiles
     match /profiles/{userId} {
+      allow list: if isAdmin();
       allow get: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && isValidProfile(incoming());
-      allow update: if (isOwner(userId) || isAdmin()) && isValidProfileUpdate(incoming());
+      allow update: if (isOwner(userId) && isValidProfileUpdate(incoming()) && !incoming().diff(existing()).affectedKeys().hasAny(['role'])) || 
+                       (isAdmin() && isValidProfileUpdate(incoming()));
 
       match /orders/{orderId} {
         allow list, get: if isOwner(userId) || isAdmin();
         allow create: if isOwner(userId) && isValidOrder(incoming());
-        allow update: if isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+        allow update: if isAdmin() || 
+                         (isOwner(userId) && incoming().status == 'cancelled' && existing().status == 'pending');
+        allow delete: if isAdmin();
       }
     }
 

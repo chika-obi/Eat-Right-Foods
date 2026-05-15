@@ -26,6 +26,26 @@ export function Navbar({ cartCount, onCartClick, onProfileClick, onAdminClick }:
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const [isSigningIn, setIsSigningIn] = React.useState(false);
+
+  const handleSignIn = async () => {
+    if (isSigningIn) return;
+    setIsSigningIn(true);
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      if (error.code === 'auth/cancelled-popup-request') {
+        console.log('Sign-in popup was cancelled or replaced.');
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        console.log('User closed the sign-in popup.');
+      } else {
+        console.error('Sign-in error:', error);
+      }
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
   return (
     <nav 
       className={cn(
@@ -113,14 +133,19 @@ export function Navbar({ cartCount, onCartClick, onProfileClick, onAdminClick }:
             </div>
           ) : (
             <button 
-              onClick={() => signInWithGoogle()}
+              onClick={handleSignIn}
+              disabled={isSigningIn}
               className={cn(
-                "flex items-center gap-2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all",
+                "flex items-center gap-2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all disabled:opacity-50",
                 isScrolled ? "bg-brand-green text-white shadow-lg shadow-brand-green/20" : "bg-white text-brand-dark"
               )}
             >
-              <LogIn size={14} />
-              <span className="hidden sm:block">Access</span>
+              {isSigningIn ? (
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <LogIn size={14} />
+              )}
+              <span className="hidden sm:block">{isSigningIn ? 'Connecting...' : 'Access'}</span>
             </button>
           )}
 

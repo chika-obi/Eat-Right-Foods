@@ -33,7 +33,10 @@ export function ProfileDrawer({ isOpen, onClose, onAddToCart, onAdminClick, prod
     const ordersRef = collection(db, 'profiles', profile.id, 'orders');
     const q = query(ordersRef, orderBy('date', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Order));
+      setOrders(snapshot.docs.map(doc => {
+        const data = doc.data() as Order;
+        return { ...data, id: doc.id, orderNumber: data.id || doc.id } as Order;
+      }));
     }, (err) => {
       // Only report if we are still authenticated as this profile user
       if (auth.currentUser?.uid === profile.id) {
@@ -480,7 +483,7 @@ export function ProfileDrawer({ isOpen, onClose, onAddToCart, onAdminClick, prod
                         <div key={order.id} className="bg-white border border-slate-100 rounded-2xl p-4 hover:shadow-md transition-all">
                           <div className="flex justify-between items-start mb-3">
                             <div>
-                              <p className="font-black text-xs text-slate-400 uppercase tracking-widest mb-1">{order.id}</p>
+                              <p className="font-black text-xs text-slate-400 uppercase tracking-widest mb-1">{order.orderNumber || order.id}</p>
                               <p className="font-bold text-sm">{new Date(order.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                             </div>
                             <span className={cn(
@@ -526,7 +529,7 @@ export function ProfileDrawer({ isOpen, onClose, onAddToCart, onAdminClick, prod
                     </button>
                     <div className="text-center">
                       <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Order Details</p>
-                      <h3 className="font-display font-bold">{selectedOrder.id}</h3>
+                      <h3 className="font-display font-bold">{selectedOrder.orderNumber || selectedOrder.id}</h3>
                     </div>
                     <button 
                       onClick={() => setIsReceiptOpen(true)}
@@ -562,7 +565,7 @@ export function ProfileDrawer({ isOpen, onClose, onAddToCart, onAdminClick, prod
                       <h4 className="font-bold text-sm uppercase tracking-widest text-slate-400">Order Summary</h4>
                       <div className="space-y-3">
                         {selectedOrder.items.map((item, idx) => (
-                          <div key={`${selectedOrder.id}-item-${item.productId}-${idx}`} className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 group">
+                          <div key={`${selectedOrder.orderNumber || selectedOrder.id}-item-${item.productId}-${idx}`} className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 group">
                             <div className="flex-1">
                               <p className="font-bold text-sm">{item.name}</p>
                               <p className="text-xs text-slate-500">x{item.quantity}</p>

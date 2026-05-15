@@ -7,6 +7,9 @@
       "properties": {
         "displayName": { "type": "string" },
         "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string" },
+        "emailVerified": { "type": "boolean" },
         "addresses": {
           "type": "array",
           "items": {
@@ -82,7 +85,10 @@
         "image": { "type": "string" },
         "calories": { "type": "number" },
         "protein": { "type": "number" },
-        "isAvailable": { "type": "boolean" }
+        "carbs": { "type": "number" },
+        "fiber": { "type": "number" },
+        "isAvailable": { "type": "boolean" },
+        "reviews": { "type": "array" }
       },
       "required": ["name", "price", "category", "image"]
     }
