@@ -60,7 +60,7 @@ type AdminTab = 'dashboard' | 'menu' | 'orders' | 'users';
 
 interface AdminNotification {
   id: string;
-  type: 'new_order' | 'status_update' | 'user_update';
+  type: 'new_order' | 'status_update' | 'user_update' | 'new_member';
   message: string;
   timestamp: Date;
   read: boolean;
@@ -218,7 +218,18 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
       
       if (!isInitialLoad.current) {
         snapshot.docChanges().forEach((change) => {
-          if (change.type === 'modified') {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            setNotifications(prev => [{
+              id: Math.random().toString(36).substr(2, 9),
+              type: 'new_member' as const,
+              message: `New member joined: ${data.displayName || 'Anonymous Member'}`,
+              timestamp: new Date(),
+              read: false,
+              userId: change.doc.id,
+              details: data.email || 'No email provided'
+            }, ...prev].slice(0, 50));
+          } else if (change.type === 'modified') {
             const data = change.doc.data();
             // We'll trust the modified event for role-related updates or overall profile shifts
             // that might interest an admin
@@ -445,10 +456,12 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                     "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm",
                                     n.type === 'new_order' ? "bg-emerald-50 text-emerald-600" : 
                                     n.type === 'status_update' ? "bg-indigo-50 text-indigo-600" :
+                                    n.type === 'new_member' ? "bg-lime-50 text-lime-600" :
                                     "bg-amber-50 text-amber-600"
                                   )}>
                                     {n.type === 'new_order' ? <ShoppingBag size={20} /> : 
                                      n.type === 'status_update' ? <Activity size={20} /> : 
+                                     n.type === 'new_member' ? <Users size={20} /> :
                                      <Users size={20} />}
                                   </div>
                                   <div className="flex-1 min-w-0">
@@ -456,6 +469,7 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                       <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                                         {n.type === 'new_order' ? 'New Placement' : 
                                          n.type === 'status_update' ? 'Status Change' : 
+                                         n.type === 'new_member' ? 'Welcome Member' :
                                          'Member Update'}
                                       </p>
                                       <p className="text-[9px] font-bold text-slate-400">{new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
