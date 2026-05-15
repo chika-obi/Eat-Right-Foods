@@ -5,6 +5,7 @@ import { ProductCard } from './ProductCard';
 import { Product, Review } from '../types';
 import { ProductReviews } from './ProductReviews';
 import { Search, SlidersHorizontal, X, ShoppingBag } from 'lucide-react';
+import { MealCompanion } from './MealCompanion';
 
 interface MenuProps {
   products: Product[];
@@ -24,7 +25,8 @@ export function Menu({ products, onAddToCart, onAddReview }: MenuProps) {
     const matchesCategory = activeCategory === 'All' || p.category === activeCategory;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          p.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+    const isAvailable = p.isAvailable !== false; // Show if true or undefined
+    return matchesCategory && matchesSearch && isAvailable;
   });
 
   return (
@@ -75,6 +77,9 @@ export function Menu({ products, onAddToCart, onAddReview }: MenuProps) {
             ))}
           </div>
         </div>
+
+        {/* Meal Companion */}
+        <MealCompanion products={products} />
 
         {/* Grid */}
         <motion.div 

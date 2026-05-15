@@ -42,32 +42,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   React.useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
+    let unsubscribeAdmin: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       
-      // Cleanup previous profile subscription
+      // Cleanup previous subscriptions
       if (unsubscribeProfile) {
         unsubscribeProfile();
         unsubscribeProfile = null;
+      }
+      if (unsubscribeAdmin) {
+        unsubscribeAdmin();
+        unsubscribeAdmin = null;
       }
 
       if (user) {
         const profileRef = doc(db, 'profiles', user.uid);
         
-        // Auto-initialize admin if email matches
+        // Super-admin auto-seed
         if (ADMIN_EMAILS.includes(user.email || '')) {
           const adminRef = doc(db, 'admins', user.uid);
           getDoc(adminRef).then(snap => {
             if (!snap.exists()) {
-              setDoc(adminRef, { role: 'superadmin' }).then(() => {
-                setIsConfirmedAdmin(true);
-              }).catch(console.error);
-            } else {
-              setIsConfirmedAdmin(true);
+              setDoc(adminRef, { role: 'superadmin', seeded: true }).catch(console.error);
             }
           });
         }
+
+        // Listen to admin status
+        const adminRef = doc(db, 'admins', user.uid);
+        unsubscribeAdmin = onSnapshot(adminRef, (snap) => {
+          setIsConfirmedAdmin(snap.exists());
+        }, (err) => {
+          console.error('Admin status sync error:', err);
+          // If we can't read the admin doc, we assume they aren't an admin
+          setIsConfirmedAdmin(false);
+          if (auth.currentUser?.uid === user.uid) {
+            handleFirestoreError(err, OperationType.GET, `admins/${user.uid}`);
+          }
+        });
 
         // Listen to profile changes
         unsubscribeProfile = onSnapshot(profileRef, (snapshot) => {
@@ -107,6 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       unsubscribeAuth();
       if (unsubscribeProfile) unsubscribeProfile();
+      if (unsubscribeAdmin) unsubscribeAdmin();
     };
   }, []);
 

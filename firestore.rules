@@ -17,15 +17,16 @@ service cloud.firestore {
 
     function isSystemAdmin() {
       return isSignedIn() && 
-             (request.auth.token.email.lower() == 'kpanukuchikaobi@gmail.com'.lower() || 
-              request.auth.token.email.lower() == 'admin@eatright.com'.lower());
+             ((request.auth.token.get('email', '').lower() == 'kpanukuchikaobi@gmail.com'.lower()) || 
+              (request.auth.token.get('email', '').lower() == 'admin@eatright.com'.lower()));
     }
 
     function isAdmin() {
       return isSignedIn() && (
         isSystemAdmin() ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.get('role', 'member') == 'admin'
+        (exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.get('role', 'member') == 'admin')
       );
     }
 

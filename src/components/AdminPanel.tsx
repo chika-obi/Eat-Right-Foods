@@ -31,7 +31,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
-import { collection, doc, onSnapshot, updateDoc, addDoc, deleteDoc, query, orderBy, collectionGroup, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, doc, onSnapshot, updateDoc, addDoc, deleteDoc, setDoc, query, orderBy, collectionGroup, getDocs, writeBatch } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { Product, Order, OrderStatus } from '../types';
 import { cn } from '../lib/utils';
@@ -66,6 +66,7 @@ interface AdminNotification {
   read: boolean;
   orderId?: string;
   userId?: string;
+  details?: string;
 }
 
 export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
@@ -155,6 +156,7 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
     }, (err) => {
       console.error(err);
       showToast('Connection to products failed', 'error');
+      handleFirestoreError(err, OperationType.LIST, 'products');
     });
 
     // Fetch All Orders via Collection Group
@@ -179,7 +181,8 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
               timestamp: new Date(),
               read: false,
               orderId: change.doc.id,
-              userId
+              userId,
+              details: `${data.items.length} items • ${data.deliveryType}`
             }, ...prev].slice(0, 50));
           } else if (change.type === 'modified') {
             const data = change.doc.data() as Order;
@@ -187,11 +190,12 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
             setNotifications(prev => [{
               id: Math.random().toString(36).substr(2, 9),
               type: 'status_update' as const,
-              message: `Order ${data.id || change.doc.id} status updated to ${data.status.toUpperCase()}`,
+              message: `Order ${data.id || change.doc.id} is now ${data.status.toUpperCase()}`,
               timestamp: new Date(),
               read: false,
               orderId: change.doc.id,
-              userId
+              userId,
+              details: `Status changed to ${data.status}`
             }, ...prev].slice(0, 50));
           }
         });
@@ -204,6 +208,7 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
       console.error(err);
       showToast('Order stream disconnected', 'info');
       setLoading(false);
+      handleFirestoreError(err, OperationType.GET, 'orders_collection_group');
     });
 
     // Fetch All Profiles
@@ -213,6 +218,7 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
     }, (err) => {
       console.error(err);
       showToast('Profile stream sync failed', 'info');
+      handleFirestoreError(err, OperationType.LIST, 'profiles');
     });
 
     return () => {
@@ -414,6 +420,12 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                       <p className="text-[9px] font-bold text-slate-400">{new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                     </div>
                                     <p className="text-[13px] font-bold text-slate-900 leading-relaxed">{n.message}</p>
+                                    {n.details && (
+                                      <p className="text-[10px] text-slate-500 font-medium mt-1 inline-flex items-center gap-1.5 bg-slate-100 px-2 py-0.5 rounded-md">
+                                        <div className="w-1 h-1 rounded-full bg-slate-400" />
+                                        {n.details}
+                                      </p>
+                                    )}
                                   </div>
                                   {!n.read && (
                                     <button 
@@ -754,7 +766,7 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                         </div>
                         <div className="divide-y divide-slate-50">
                           {orders.slice(0, 5).map(order => (
-                            <div key={order.id} className="p-8 hover:bg-slate-50 transition-colors flex items-center justify-between group">
+                            <div key={`${order.userId}-${order.id}`} className="p-8 hover:bg-slate-50 transition-colors flex items-center justify-between group">
                               <div className="flex items-center gap-6">
                                 <div className="w-14 h-14 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-slate-100 text-slate-400 group-hover:scale-110 transition-transform">
                                   <ShoppingBag size={24} />
@@ -866,11 +878,16 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                             </div>
                             <div className="p-8">
                               <div className="flex items-start justify-between gap-4 mb-4">
-                                 <div>
-                                   <p className="text-[9px] font-black text-brand-green uppercase tracking-widest mb-1">{product.category}</p>
-                                   <h3 className="font-display font-bold text-xl tracking-tight">{product.name}</h3>
-                                 </div>
-                                 <span className="font-display font-bold text-lg text-slate-900">₦{product.price.toLocaleString()}</span>
+                                  <div className="flex items-center gap-4">
+                                     <div className="w-14 h-14 rounded-2xl overflow-hidden shrink-0 border border-slate-100 shadow-sm bg-white">
+                                        <img src={product.image} alt="" className="w-full h-full object-cover" />
+                                     </div>
+                                     <div>
+                                       <p className="text-[9px] font-black text-brand-green uppercase tracking-widest mb-1">{product.category}</p>
+                                       <h3 className="font-display font-bold text-xl tracking-tight">{product.name}</h3>
+                                     </div>
+                                  </div>
+                                  <span className="font-display font-bold text-lg text-slate-900">₦{product.price.toLocaleString()}</span>
                               </div>
                               
                               <p className="text-sm text-slate-500 leading-relaxed line-clamp-2 mb-8">{product.description}</p>
@@ -979,12 +996,13 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                               </thead>
                               <tbody className="divide-y divide-slate-50">
                                  {filteredOrders.map(order => (
-                                    <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
+                                    <tr key={`${order.userId}-${order.id}`} className="hover:bg-slate-50/50 transition-colors group">
                                        <td className="px-8 py-6">
                                           <div className="flex items-center gap-3">
                                              <div className={cn(
                                                "w-2 h-2 rounded-full",
-                                               order.status === 'pending' ? "bg-amber-400 animate-pulse" : "bg-brand-green"
+                                               order.status === 'pending' ? "bg-amber-400 animate-pulse" : 
+                                               order.status === 'cancelled' ? "bg-slate-300" : "bg-brand-green"
                                              )} />
                                              <span className="font-display font-bold text-slate-900">#{(order.orderNumber || order.id || '').toUpperCase()}</span>
                                           </div>
@@ -1009,6 +1027,7 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                             "inline-flex px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border",
                                             order.status === 'delivered' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
                                             order.status === 'pending' ? "bg-amber-50 text-amber-600 border-amber-100" :
+                                            order.status === 'cancelled' ? "bg-slate-100 text-slate-500 border-slate-200" :
                                             "bg-indigo-50 text-indigo-600 border-indigo-100"
                                           )}>
                                             {order.status}
@@ -1038,6 +1057,18 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                                 className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:scale-105 transition-all"
                                               >
                                                 Finish
+                                              </button>
+                                            )}
+                                            {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                                              <button 
+                                                onClick={() => {
+                                                  if (confirm(`Are you sure you want to cancel order #${(order.orderNumber || order.id || '').toUpperCase()}?`)) {
+                                                    handleUpdateOrderStatus(order.userId, order.id, 'cancelled');
+                                                  }
+                                                }}
+                                                className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-100 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all"
+                                              >
+                                                Cancel
                                               </button>
                                             )}
                                           </div>
@@ -1136,34 +1167,48 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                          </td>
                                          <td className="px-8 py-6 text-right">
                                             <div className="flex items-center justify-end gap-3">
-                                              <button 
-                                                onClick={async () => {
-                                                  const newRole = profile.role === 'admin' ? 'member' : 'admin';
-                                                  if (confirm(`Change ${profile.displayName}'s role to ${newRole}?`)) {
-                                                    try {
-                                                      await updateDoc(doc(db, 'profiles', profile.id), { role: newRole });
-                                                      showToast(`Role updated to ${newRole}`);
-                                                    } catch (e) {
-                                                      showToast('Role update failed', 'error');
-                                                    }
-                                                  }
-                                                }}
-                                                className={cn(
-                                                  "px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all",
-                                                  profile.role === 'admin' ? "bg-amber-100 text-amber-600 hover:bg-amber-200" : "bg-slate-100 text-slate-400 hover:bg-slate-200"
-                                                )}
-                                              >
-                                                 {profile.role === 'admin' ? 'Revoke Admin' : 'Make Admin'}
-                                              </button>
-                                              <button 
-                                                onClick={() => {
-                                                  setOrderSearchQuery(profile.id);
-                                                  setActiveTab('orders');
-                                                }}
-                                                className="px-4 py-2 rounded-xl border border-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-brand-green group-hover:border-brand-green transition-all"
-                                              >
-                                                Inspect Activity
-                                              </button>
+                                               <button 
+                                                 onClick={async () => {
+                                                   const isAdmin = profile.role === 'admin';
+                                                   const newRole = isAdmin ? 'member' : 'admin';
+                                                   if (confirm(`Are you sure you want to ${isAdmin ? 'DEMOTE' : 'PROMOTE'} ${profile.displayName || 'this user'} to ${newRole.toUpperCase()}?`)) {
+                                                     try {
+                                                       const profileRef = doc(db, 'profiles', profile.id);
+                                                       const adminRef = doc(db, 'admins', profile.id);
+                                                       
+                                                       if (newRole === 'admin') {
+                                                         await setDoc(adminRef, { role: 'admin', promotedAt: new Date(), promotedBy: auth.currentUser?.email });
+                                                         await updateDoc(profileRef, { role: 'admin' });
+                                                       } else {
+                                                         await deleteDoc(adminRef);
+                                                         await updateDoc(profileRef, { role: 'member' });
+                                                       }
+                                                       
+                                                       showToast(`User successfully ${isAdmin ? 'demoted' : 'promoted'} to ${newRole}`);
+                                                     } catch (e) {
+                                                       console.error(e);
+                                                       showToast('Authority update failed', 'error');
+                                                     }
+                                                   }
+                                                 }}
+                                                 className={cn(
+                                                   "px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border",
+                                                   profile.role === 'admin' 
+                                                     ? "bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-600 hover:text-white" 
+                                                     : "bg-slate-50 text-slate-400 border-slate-100 hover:border-brand-green hover:text-brand-green"
+                                                 )}
+                                               >
+                                                  {profile.role === 'admin' ? 'Revoke Access' : 'Grant Admin'}
+                                               </button>
+                                               <button 
+                                                 onClick={() => {
+                                                   setOrderSearchQuery(profile.id);
+                                                   setActiveTab('orders');
+                                                 }}
+                                                 className="px-4 py-2 rounded-xl border border-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-brand-green group-hover:border-brand-green transition-all"
+                                               >
+                                                 Inspect Activity
+                                               </button>
                                             </div>
                                          </td>
                                       </tr>
@@ -1217,8 +1262,14 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                           <span className="text-xs font-bold text-slate-300">{new Date(selectedOrder.date).toLocaleString()}</span>
                                        </div>
                                        <div className="flex items-center gap-2">
-                                          <Package size={14} className="text-brand-green" />
-                                          <span className="text-xs font-bold text-brand-green uppercase tracking-widest">{selectedOrder.status}</span>
+                                          <Package size={14} className={cn(
+                                            "text-brand-green",
+                                            selectedOrder.status === 'cancelled' && "text-slate-400"
+                                          )} />
+                                          <span className={cn(
+                                            "text-xs font-bold uppercase tracking-widest",
+                                            selectedOrder.status === 'cancelled' ? "text-slate-400" : "text-brand-green"
+                                          )}>{selectedOrder.status}</span>
                                        </div>
                                     </div>
                                  </div>
@@ -1228,15 +1279,15 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                                  {/* Status Manager */}
                                  <section>
                                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Workflow Status</h4>
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                       {(['pending', 'preparing', 'dispatched', 'delivered'] as OrderStatus[]).map(status => (
+                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                                       {(['pending', 'preparing', 'dispatched', 'delivered', 'cancelled'] as OrderStatus[]).map(status => (
                                           <button 
                                             key={status}
                                             onClick={() => handleUpdateOrderStatus(selectedOrder.userId, selectedOrder.id, status)}
                                             className={cn(
                                               "py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border",
                                               selectedOrder.status === status ? 
-                                              "bg-brand-green text-white border-brand-green shadow-lg shadow-brand-green/20" : 
+                                              (status === 'cancelled' ? "bg-slate-900 text-white border-slate-900 shadow-lg" : "bg-brand-green text-white border-brand-green shadow-lg shadow-brand-green/20") : 
                                               "bg-slate-50 text-slate-400 border-slate-100 hover:bg-white hover:border-slate-300"
                                             )}
                                           >

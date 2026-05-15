@@ -20,6 +20,7 @@ export interface UserProfile {
   id: string;
   displayName: string;
   email: string;
+  role?: 'admin' | 'member';
   addresses: Address[];
   paymentMethods: PaymentMethod[];
 }
@@ -38,6 +39,7 @@ export interface Order {
   total: number;
   status: OrderStatus;
   address: string;
+  orderNumber?: string;
   deliveryType: DeliveryType;
 }
 
@@ -68,7 +70,7 @@ export interface CartItem extends Product {
   quantity: number;
 }
 
-export type OrderStatus = 'pending' | 'preparing' | 'dispatched' | 'delivered';
+export type OrderStatus = 'pending' | 'preparing' | 'dispatched' | 'delivered' | 'cancelled';
 
 export type DeliveryType = 'standard' | 'express' | 'scheduled';
 

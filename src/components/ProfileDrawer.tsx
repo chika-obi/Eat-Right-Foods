@@ -56,6 +56,7 @@ export function ProfileDrawer({ isOpen, onClose, onAddToCart, onAdminClick, prod
       case 'pending': return 'bg-amber-100 text-amber-700 border border-amber-200';
       case 'preparing': return 'bg-indigo-100 text-indigo-700 border border-indigo-200';
       case 'dispatched': return 'bg-orange-100 text-orange-700 border border-orange-200';
+      case 'cancelled': return 'bg-red-100 text-red-700 border border-red-200';
       default: return 'bg-slate-100 text-slate-500 border border-slate-200';
     }
   };

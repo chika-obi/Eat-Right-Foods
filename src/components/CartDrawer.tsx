@@ -498,37 +498,83 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemove 
                           />
                         </div>
  
-                         {profile && profile.paymentMethods.length > 0 && (
-                          <div>
-                            <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-2">
-                              <CreditCard size={12} className="text-brand-green" /> Payment Method
-                            </label>
-                            <div className="grid grid-cols-2 gap-2">
-                               <button
-                                 onClick={() => setSelectedPaymentId('')}
-                                 className={cn(
-                                   "p-3 rounded-xl border-2 transition-all text-xs text-center font-bold",
-                                   selectedPaymentId === '' ? "border-brand-green bg-brand-green/5 text-brand-green" : "border-slate-100 text-slate-500"
-                                 )}
-                               >
-                                 Pay on Delivery
-                               </button>
-                               {profile.paymentMethods.map(pm => (
-                                 <button
-                                   key={pm.id}
-                                   onClick={() => setSelectedPaymentId(pm.id)}
-                                   className={cn(
-                                     "p-3 rounded-xl border-2 transition-all text-xs text-center font-bold flex items-center justify-center gap-2",
-                                     selectedPaymentId === pm.id ? "border-brand-green bg-brand-green/5 text-brand-green" : "border-slate-100 text-slate-500"
-                                   )}
-                                 >
-                                   <span className="uppercase text-[8px] font-black">{pm.brand}</span>
-                                   <span>•• {pm.last4}</span>
-                                 </button>
-                               ))}
-                            </div>
+                        {/* Payment Method Section */}
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
+                            <CreditCard size={14} className="text-brand-green" /> Payment Method
+                          </label>
+                          <div className={cn(
+                            "grid gap-2",
+                            profile && profile.paymentMethods.length > 0 ? "grid-cols-2" : "grid-cols-1"
+                          )}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPaymentId('')}
+                              className={cn(
+                                "p-4 rounded-2xl border-2 transition-all text-left group relative overflow-hidden",
+                                selectedPaymentId === '' 
+                                  ? "border-brand-green bg-brand-green/5" 
+                                  : "border-slate-100 bg-white hover:border-slate-200"
+                              )}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={cn(
+                                  "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                                  selectedPaymentId === '' ? "bg-brand-green text-white" : "bg-slate-100 text-slate-400"
+                                )}>
+                                  <Truck size={16} />
+                                </div>
+                                <div>
+                                  <p className={cn(
+                                    "font-bold text-xs uppercase tracking-wider",
+                                    selectedPaymentId === '' ? "text-brand-green" : "text-slate-900"
+                                  )}>Pay on Delivery</p>
+                                  <p className="text-[10px] text-slate-500 font-medium">Cash or Transfer</p>
+                                </div>
+                              </div>
+                              {selectedPaymentId === '' && (
+                                <div className="absolute top-0 right-0 p-2">
+                                  <div className="w-2 h-2 rounded-full bg-brand-green" />
+                                </div>
+                              )}
+                            </button>
+
+                            {profile && profile.paymentMethods.map(pm => (
+                              <button
+                                key={pm.id}
+                                type="button"
+                                onClick={() => setSelectedPaymentId(pm.id)}
+                                className={cn(
+                                  "p-4 rounded-2xl border-2 transition-all text-left group relative overflow-hidden",
+                                  selectedPaymentId === pm.id 
+                                    ? "border-brand-green bg-brand-green/5" 
+                                    : "border-slate-100 bg-white hover:border-slate-200"
+                                )}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className={cn(
+                                    "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                                    selectedPaymentId === pm.id ? "bg-brand-green text-white" : "bg-slate-100 text-slate-400"
+                                  )}>
+                                    <CreditCard size={16} />
+                                  </div>
+                                  <div>
+                                    <p className={cn(
+                                      "font-bold text-xs uppercase tracking-wider",
+                                      selectedPaymentId === pm.id ? "text-brand-green" : "text-slate-900"
+                                    )}>•••• {pm.last4}</p>
+                                    <p className="text-[10px] text-slate-500 font-medium uppercase">{pm.brand}</p>
+                                  </div>
+                                </div>
+                                {selectedPaymentId === pm.id && (
+                                  <div className="absolute top-0 right-0 p-2">
+                                    <div className="w-2 h-2 rounded-full bg-brand-green" />
+                                  </div>
+                                )}
+                              </button>
+                            ))}
                           </div>
-                        )}
+                        </div>
                       </div>
 
                     {addressError && (
