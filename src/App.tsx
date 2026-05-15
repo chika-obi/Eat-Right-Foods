@@ -14,7 +14,7 @@ import { ProfileDrawer } from './components/ProfileDrawer';
 import { AdminPanel } from './components/AdminPanel';
 import { AboutUs } from './components/AboutUs';
 import { Newsletter } from './components/Newsletter';
-import { PromoTicker } from './components/TrustBar';
+import { PromotionModal } from './components/PromotionModal';
 import { AuthProvider } from './contexts/AuthContext';
 import { Product, CartItem, Review } from './types';
 import { PRODUCTS, CONTACT_INFO } from './constants';
@@ -110,7 +110,6 @@ function AppContent() {
       />
       
       <header className="fixed top-0 left-0 right-0 z-50">
-        <PromoTicker />
         <Navbar 
           cartCount={cartCount} 
           onCartClick={() => setIsCartOpen(true)} 
@@ -219,6 +218,8 @@ function AppContent() {
         isOpen={isAdminOpen}
         onClose={() => setIsAdminOpen(false)}
       />
+
+      <PromotionModal />
     </div>
   );
 }
